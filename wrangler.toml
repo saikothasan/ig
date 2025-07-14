@@ -27,7 +27,7 @@ class_name = "NotificationManager"
 # Run `wrangler deploy` to apply this migration.
 [[migrations]]
 tag = "v1"
-new_classes = ["CommentRoom", "DMChatRoom", "NotificationManager"]
+new_sqlite_classes = ["CommentRoom", "DMChatRoom", "NotificationManager"]
 
 # Environment variables for your worker.
 # Secrets should be set using `wrangler secret put <KEY>`.

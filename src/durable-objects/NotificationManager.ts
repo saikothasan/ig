@@ -1,10 +1,6 @@
 import { type DurableObjectState, type WebSocket, WebSocketPair } from "@cloudflare/workers"
 
-// This defines a Durable Object class.
-// To use it, you must configure it in your wrangler.toml file.
-// See: https://developers.cloudflare.com/workers/learning/using-durable-objects/
-
-export class CommentRoom {
+export class NotificationManager {
   state: DurableObjectState
   sessions: WebSocket[] = []
 
@@ -21,8 +17,8 @@ export class CommentRoom {
 
     if (request.method === "POST") {
       const message = await request.text()
-      this.broadcast(message)
-      return new Response("Broadcasted", { status: 200 })
+      this.send(message)
+      return new Response("Sent", { status: 200 })
     }
 
     return new Response("Not found", { status: 404 })
@@ -31,21 +27,21 @@ export class CommentRoom {
   handleSession(session: WebSocket) {
     this.sessions.push(session)
     session.accept()
-
     session.addEventListener("close", () => {
       this.sessions = this.sessions.filter((s) => s !== session)
     })
     session.addEventListener("error", (err) => {
-      console.error(`WebSocket error:`, err)
+      console.error(`Notification WebSocket error:`, err)
       this.sessions = this.sessions.filter((s) => s !== session)
     })
   }
 
-  broadcast(message: string) {
+  send(message: string) {
     this.sessions.forEach((session) => {
       try {
         session.send(message)
       } catch (e) {
+        console.error("Failed to send notification to a session, removing it.", e)
         this.sessions = this.sessions.filter((s) => s !== session)
       }
     })

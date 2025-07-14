@@ -1,10 +1,8 @@
 import { type DurableObjectState, type WebSocket, WebSocketPair } from "@cloudflare/workers"
 
-// This defines a Durable Object class.
-// To use it, you must configure it in your wrangler.toml file.
-// See: https://developers.cloudflare.com/workers/learning/using-durable-objects/
-
-export class CommentRoom {
+// This Durable Object manages WebSocket connections for a single conversation.
+// Each conversationId will have its own instance of this object.
+export class DMChatRoom {
   state: DurableObjectState
   sessions: WebSocket[] = []
 
@@ -13,6 +11,7 @@ export class CommentRoom {
   }
 
   async fetch(request: Request) {
+    // This DO is only for WebSocket upgrades.
     if (request.headers.get("Upgrade") === "websocket") {
       const { 0: client, 1: server } = new WebSocketPair()
       this.handleSession(server)
@@ -36,7 +35,7 @@ export class CommentRoom {
       this.sessions = this.sessions.filter((s) => s !== session)
     })
     session.addEventListener("error", (err) => {
-      console.error(`WebSocket error:`, err)
+      console.error(`DM WebSocket error:`, err)
       this.sessions = this.sessions.filter((s) => s !== session)
     })
   }
@@ -46,6 +45,7 @@ export class CommentRoom {
       try {
         session.send(message)
       } catch (e) {
+        console.error("Failed to send DM to a session, removing it.", e)
         this.sessions = this.sessions.filter((s) => s !== session)
       }
     })

@@ -1,48 +1,73 @@
-import { type DurableObjectState, type WebSocket, WebSocketPair } from "@cloudflare/workers"
+import type { DurableObjectState, WebSocket } from "@cloudflare/workers-types"
 
 export class NotificationManager {
   state: DurableObjectState
-  sessions: WebSocket[] = []
+  websockets: WebSocket[]
 
   constructor(state: DurableObjectState) {
     this.state = state
+    this.websockets = []
   }
 
-  async fetch(request: Request) {
+  async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") === "websocket") {
-      const { 0: client, 1: server } = new WebSocketPair()
-      this.handleSession(server)
-      return new Response(null, { status: 101, webSocket: client })
+      return this.handleWebSocket(request)
     }
 
-    if (request.method === "POST") {
-      const message = await request.text()
-      this.send(message)
-      return new Response("Sent", { status: 200 })
-    }
-
-    return new Response("Not found", { status: 404 })
+    return new Response("Expected websocket!", { status: 426 })
   }
 
-  handleSession(session: WebSocket) {
-    this.sessions.push(session)
-    session.accept()
-    session.addEventListener("close", () => {
-      this.sessions = this.sessions.filter((s) => s !== session)
-    })
-    session.addEventListener("error", (err) => {
-      console.error(`Notification WebSocket error:`, err)
-      this.sessions = this.sessions.filter((s) => s !== session)
-    })
-  }
+  async handleWebSocket(request: Request): Promise<Response> {
+    const pair = new WebSocketPair()
+    const ws = pair[0]
+    const client = pair[1]
 
-  send(message: string) {
-    this.sessions.forEach((session) => {
+    client.accept()
+
+    this.websockets.push(client)
+
+    client.addEventListener("message", async (msg) => {
       try {
-        session.send(message)
+        const parsedMessage = JSON.parse(msg.data as string)
+
+        if (parsedMessage.type === "subscribe") {
+          // Handle subscription logic here (e.g., store user preferences)
+          console.log(`User subscribed to: ${parsedMessage.topic}`)
+          client.send(`Subscribed to ${parsedMessage.topic}`)
+        } else {
+          console.log("Received message:", parsedMessage)
+        }
       } catch (e) {
-        console.error("Failed to send notification to a session, removing it.", e)
-        this.sessions = this.sessions.filter((s) => s !== session)
+        console.error("Failed to parse message:", e)
+        client.send("Error: Invalid message format.")
+      }
+    })
+
+    client.addEventListener("close", () => {
+      this.websockets = this.websockets.filter((socket) => socket !== client)
+    })
+
+    client.addEventListener("error", (error) => {
+      console.error("WebSocket error:", error)
+      this.websockets = this.websockets.filter((socket) => socket !== client)
+    })
+
+    return new Response(null, { status: 101, webSocket: ws })
+  }
+
+  async broadcast(message: string): Promise<void> {
+    this.websockets = this.websockets.filter((socket) => {
+      try {
+        socket.send(message)
+        return true
+      } catch (e) {
+        console.error("Failed to send message:", e)
+        try {
+          socket.close(1011, "Failed to send message.")
+        } catch (e) {
+          console.error("Failed to close socket:", e)
+        }
+        return false
       }
     })
   }

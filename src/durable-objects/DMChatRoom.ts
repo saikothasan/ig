@@ -1,7 +1,5 @@
-import { type DurableObjectState, type WebSocket, WebSocketPair } from "@cloudflare/workers"
+import type { DurableObjectState, WebSocket } from "@cloudflare/workers-types"
 
-// This Durable Object manages WebSocket connections for a single conversation.
-// Each conversationId will have its own instance of this object.
 export class DMChatRoom {
   state: DurableObjectState
   sessions: WebSocket[] = []
@@ -11,42 +9,51 @@ export class DMChatRoom {
   }
 
   async fetch(request: Request) {
-    // This DO is only for WebSocket upgrades.
+    // If the request is a WebSocket upgrade, handle it.
     if (request.headers.get("Upgrade") === "websocket") {
       const { 0: client, 1: server } = new WebSocketPair()
       this.handleSession(server)
       return new Response(null, { status: 101, webSocket: client })
     }
 
+    // If the request is a POST, it's a message from the REST API to be broadcasted.
     if (request.method === "POST") {
       const message = await request.text()
       this.broadcast(message)
-      return new Response("Broadcasted", { status: 200 })
+      return new Response("Message broadcasted", { status: 200 })
     }
 
     return new Response("Not found", { status: 404 })
   }
 
+  // handleSession manages a new WebSocket connection.
   handleSession(session: WebSocket) {
     this.sessions.push(session)
     session.accept()
 
-    session.addEventListener("close", () => {
-      this.sessions = this.sessions.filter((s) => s !== session)
+    // When a client sends a message, broadcast it to all other clients.
+    session.addEventListener("message", (msg) => {
+      this.broadcast(msg.data as string)
     })
-    session.addEventListener("error", (err) => {
-      console.error(`DM WebSocket error:`, err)
+
+    // Clean up the session on close or error.
+    const closeOrErrorHandler = () => {
       this.sessions = this.sessions.filter((s) => s !== session)
-    })
+    }
+    session.addEventListener("close", closeOrErrorHandler)
+    session.addEventListener("error", closeOrErrorHandler)
   }
 
+  // broadcast sends a message to all connected clients.
   broadcast(message: string) {
-    this.sessions.forEach((session) => {
+    // Iterate over all sessions and send the message.
+    // If a session is closed, remove it from the list.
+    this.sessions = this.sessions.filter((session) => {
       try {
         session.send(message)
-      } catch (e) {
-        console.error("Failed to send DM to a session, removing it.", e)
-        this.sessions = this.sessions.filter((s) => s !== session)
+        return true
+      } catch (err) {
+        return false
       }
     })
   }

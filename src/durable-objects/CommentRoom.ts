@@ -1,5 +1,4 @@
-import { type DurableObjectState, type WebSocket, WebSocketPair } from "@cloudflare/workers-types"
-
+import type { DurableObjectState, WebSocket } from "@cloudflare/workers-types"
 // This defines a Durable Object class.
 // To use it, you must configure it in your wrangler.toml file.
 // See: https://developers.cloudflare.com/workers/learning/using-durable-objects/

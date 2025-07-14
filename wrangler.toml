@@ -1,0 +1,44 @@
+# This is the configuration file for your Cloudflare Worker.
+# It defines the entry point, bindings to other Cloudflare services,
+# and environment variables.
+
+name = "ig"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+# Binding for Cloudflare R2 Storage for image uploads.
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "instagram-clone-uploads"
+
+# Bindings for Durable Objects to handle real-time WebSocket connections.
+[[durable_objects.bindings]]
+name = "COMMENT_ROOM"
+class_name = "CommentRoom"
+
+[[durable_objects.bindings]]
+name = "DM_CHAT_ROOM"
+class_name = "DMChatRoom"
+
+[[durable_objects.bindings]]
+name = "NOTIFICATION_MANAGER"
+class_name = "NotificationManager"
+
+# This migration is necessary to enable the Durable Object classes.
+# Run `wrangler deploy` to apply this migration.
+[[migrations]]
+tag = "v1"
+new_classes = ["CommentRoom", "DMChatRoom", "NotificationManager"]
+
+# Environment variables for your worker.
+# Secrets should be set using `wrangler secret put <KEY>`.
+[vars]
+# No plaintext variables needed.
+
+# To set your secrets, run the following commands in your terminal:
+# wrangler secret put DATABASE_URL
+# wrangler secret put JWT_SECRET
+# wrangler secret put R2_ACCOUNT_ID
+# wrangler secret put R2_ACCESS_KEY_ID
+# wrangler secret put R2_SECRET_ACCESS_KEY

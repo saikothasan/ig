@@ -31,12 +31,3 @@ new_classes = ["CommentRoom", "DMChatRoom", "NotificationManager"]
 
 # Environment variables for your worker.
 # Secrets should be set using `wrangler secret put <KEY>`.
-[vars]
-# No plaintext variables needed.
-
-# To set your secrets, run the following commands in your terminal:
-# wrangler secret put DATABASE_URL
-# wrangler secret put JWT_SECRET
-# wrangler secret put R2_ACCOUNT_ID
-# wrangler secret put R2_ACCESS_KEY_ID
-# wrangler secret put R2_SECRET_ACCESS_KEY
